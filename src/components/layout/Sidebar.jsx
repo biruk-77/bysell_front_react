@@ -21,7 +21,7 @@ const Sidebar = () => {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['all'] },
     { name: 'Posts', href: '/posts', icon: BriefcaseIcon, roles: ['all'] },
     { name: 'Connections', href: '/connections', icon: UserGroupIcon, roles: ['all'] },
-    { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, roles: ['all'] },
+    { name: 'Messages', href: '/chat', icon: ChatBubbleLeftRightIcon, roles: ['all'] },
     { name: 'Search', href: '/search', icon: MagnifyingGlassIcon, roles: ['all'] },
     { name: 'Profile', href: '/profile', icon: UserCircleIcon, roles: ['all'] },
     { name: 'Admin', href: '/admin', icon: ShieldCheckIcon, roles: ['admin'] },

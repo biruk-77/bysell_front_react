@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { 
   Users, 
   UserPlus, 
@@ -10,13 +10,18 @@ import {
   Globe,
   Grid,
   List,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  Eye
 } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
 import useSocket from '../hooks/useSocket'
 import { connectionsAPI, searchAPI } from '../lib/api'
 import UserCard from '../components/connections/UserCard'
 import ConnectionRequestModal from '../components/connections/ConnectionRequestModal'
+import MutualConnectionsBadge from '../components/connections/MutualConnectionsBadge'
+import RelatedConnectionsModal from '../components/connections/RelatedConnectionsModal'
+import { getMutualCount, getPeopleYouMayKnow, getNetworkInsights } from '../utils/connectionHelpers'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
@@ -27,8 +32,7 @@ const ConnectionsPage = () => {
     isConnected: socketConnected, 
     onlineUsers, 
     sendConnectionRequest: socketSendRequest,
-    respondToConnectionRequest: socketRespondRequest,
-    cancelConnectionRequest: socketCancelRequest
+    respondToConnectionRequest: socketRespondRequest 
   } = useSocket()
   
   // State
@@ -47,6 +51,10 @@ const ConnectionsPage = () => {
   const [showConnectionModal, setShowConnectionModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [requestLoading, setRequestLoading] = useState(false)
+  
+  // PART 2 & 4: People You May Know + Related Connections
+  const [showRelatedModal, setShowRelatedModal] = useState(false)
+  const [relatedModalUser, setRelatedModalUser] = useState(null)
 
   // Load connections data
   const loadConnectionsData = async () => {
@@ -88,36 +96,16 @@ const ConnectionsPage = () => {
     loadConnectionsData()
   }, [])
 
-  // Listen for socket events to refresh connections data
-  useEffect(() => {
-    if (!socketConnected) return
+  // PART 2: People You May Know - Calculate smart suggestions
+  const peopleYouMayKnow = useMemo(() => {
+    if (!user || suggestedUsers.length === 0) return [];
+    return getPeopleYouMayKnow(connections, suggestedUsers, user).slice(0, 12);
+  }, [connections, suggestedUsers, user]);
 
-    const handleConnectionRequestReceived = () => {
-      console.log('🔗 Connection request received - refreshing data')
-      loadConnectionsData()
-    }
-
-    const handleConnectionRequestResponded = () => {
-      console.log('✅ Connection request responded - refreshing data')
-      loadConnectionsData()
-    }
-
-    const handleConnectionRequestSent = () => {
-      console.log('📤 Connection request sent - refreshing data')
-      loadConnectionsData()
-    }
-
-    // Add event listeners
-    window.addEventListener('connection_request_received', handleConnectionRequestReceived)
-    window.addEventListener('connection_request_responded', handleConnectionRequestResponded)
-    window.addEventListener('connection_request_sent', handleConnectionRequestSent)
-
-    return () => {
-      window.removeEventListener('connection_request_received', handleConnectionRequestReceived)
-      window.removeEventListener('connection_request_responded', handleConnectionRequestResponded)
-      window.removeEventListener('connection_request_sent', handleConnectionRequestSent)
-    }
-  }, [socketConnected])
+  // PART 3: Network Insights - Calculate statistics
+  const networkInsights = useMemo(() => {
+    return getNetworkInsights(connections);
+  }, [connections]);
 
   // Search users
   const searchUsers = async (query) => {
@@ -237,22 +225,6 @@ const ConnectionsPage = () => {
     return 'not_connected'
   }
 
-  // Get connection info including connectionId for pending requests
-  const getConnectionInfo = (userId) => {
-    const status = getUserConnectionStatus(userId)
-    
-    if (status === 'pending') {
-      const sentRequest = sentRequests.find(req => {
-        const isMatch = req.receiver?.id === userId
-        const isPending = req.status === 'pending'
-        return isMatch && isPending
-      })
-      return { status, connectionId: sentRequest?.id }
-    }
-    
-    return { status, connectionId: null }
-  }
-
   // Respond to connection request via Socket
   const respondToConnectionRequest = async (connectionId, action, requester) => {
     try {
@@ -261,25 +233,13 @@ const ConnectionsPage = () => {
       if (action === 'accept') {
         toast.success(`Connection request from ${requester} accepted!`)
       } else {
-        toast.success(`Connection request from ${requester} declined!`)
+        toast.info(`Connection request from ${requester} declined`)
       }
       
       await loadConnectionsData()
     } catch (error) {
-      console.error('Failed to respond to connection request:', error)
-      toast.error('Failed to respond to connection request')
-    }
-  }
-
-  // Cancel sent connection request
-  const cancelConnectionRequest = async (connectionId, receiverUsername) => {
-    try {
-      await socketCancelRequest(connectionId)
-      toast.success(`Connection request to ${receiverUsername} cancelled!`)
-      await loadConnectionsData()
-    } catch (error) {
-      console.error('Failed to cancel connection request:', error)
-      toast.error('Failed to cancel connection request')
+      console.error(`Failed to ${action} connection request:`, error)
+      toast.error(`Failed to ${action} connection request`)
     }
   }
 
@@ -408,11 +368,11 @@ const ConnectionsPage = () => {
               description: 'Requests sent'
             },
             { 
-              label: 'Discover', 
-              value: suggestedUsers.length, 
-              icon: Sparkles, 
+              label: 'May Know', 
+              value: peopleYouMayKnow.length, 
+              icon: TrendingUp, 
               color: 'purple',
-              description: 'People to meet'
+              description: `+${networkInsights.recentGrowth} this week`
             }
           ].map(({ label, value, icon: Icon, color, description }) => (
             <div key={label} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
@@ -441,10 +401,11 @@ const ConnectionsPage = () => {
             <div className="flex space-x-1">
               {[
                 { id: 'discover', label: 'Discover', icon: Users },
+                { id: 'suggested', label: 'May Know', icon: TrendingUp, count: peopleYouMayKnow.length },
                 { id: 'connections', label: 'Connected', icon: UserCheck },
                 { id: 'pending', label: 'Pending', icon: Zap },
                 { id: 'sent', label: 'Sent', icon: Star }
-              ].map(({ id, label, icon: Icon }) => (
+              ].map(({ id, label, icon: Icon, count }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
@@ -520,9 +481,8 @@ const ConnectionsPage = () => {
                 onConnect={handleConnectClick}
                 onChat={startChat}
                 getUserStatus={getUserConnectionStatus}
-                getConnectionInfo={getConnectionInfo}
-                cancelConnectionRequest={cancelConnectionRequest}
                 pendingRequests={pendingRequests}
+                myConnections={connections}
                 onAccept={(userId, username) => {
                   const request = pendingRequests.find(req => req.requester?.id === userId)
                   if (request) {
@@ -536,6 +496,70 @@ const ConnectionsPage = () => {
                   }
                 }}
               />
+            )}
+
+            {activeTab === 'suggested' && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                  People You May Know ({peopleYouMayKnow.length})
+                </h3>
+                
+                {peopleYouMayKnow.length === 0 ? (
+                  <div className="text-center py-12">
+                    <TrendingUp className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No suggestions yet</h3>
+                    <p className="text-gray-600">Connect with more people to get smart suggestions</p>
+                  </div>
+                ) : (
+                  <div className={viewMode === 'grid' 
+                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' 
+                    : 'space-y-4'
+                  }>
+                    {peopleYouMayKnow.map((suggestedUser) => (
+                      <div key={suggestedUser.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3">
+                            {suggestedUser.username?.[0]?.toUpperCase()}
+                          </div>
+                          <h3 className="font-semibold text-lg text-gray-900">{suggestedUser.username}</h3>
+                          <p className="text-sm text-gray-600 capitalize">{suggestedUser.role}</p>
+                          
+                          {/* PART 1: Show suggestion reasons */}
+                          {suggestedUser.suggestionReasons && suggestedUser.suggestionReasons.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                              {suggestedUser.suggestionReasons.slice(0, 2).map((reason, i) => (
+                                <span key={i} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                                  {reason}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2 mt-4 w-full">
+                            <button
+                              onClick={() => handleConnectClick(suggestedUser)}
+                              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              Connect
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRelatedModalUser(suggestedUser);
+                                setShowRelatedModal(true);
+                              }}
+                              className="p-2 border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                              title="View related connections"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {activeTab === 'connections' && (
@@ -577,6 +601,20 @@ const ConnectionsPage = () => {
         onSendRequest={sendConnectionRequest}
         isLoading={requestLoading}
       />
+
+      {/* PART 4: Related Connections Modal */}
+      <RelatedConnectionsModal
+        isOpen={showRelatedModal}
+        onClose={() => {
+          setShowRelatedModal(false)
+          setRelatedModalUser(null)
+        }}
+        targetUser={relatedModalUser}
+        myConnections={connections}
+        allUsers={[...suggestedUsers, ...searchResults]}
+        currentUser={user}
+        onConnect={handleConnectClick}
+      />
     </div>
   )
 }
@@ -591,11 +629,10 @@ const DiscoverTab = ({
   onConnect, 
   onChat, 
   getUserStatus, 
-  getConnectionInfo,
-  cancelConnectionRequest,
   pendingRequests,
   onAccept,
-  onReject 
+  onReject,
+  myConnections = []
 }) => (
   <div>
     {/* Search Bar */}
@@ -632,21 +669,33 @@ const DiscoverTab = ({
         : 'space-y-4'
       }>
         {filteredUsers.map((user) => {
-          const connectionInfo = getConnectionInfo(user.id)
-          const userWithConnectionId = { ...user, connectionId: connectionInfo.connectionId }
+          // PART 1: Calculate mutual connections
+          const mutualCount = getMutualCount(myConnections, user);
+          const mutualNames = myConnections
+            .filter(conn => user.connections && user.connections.includes(
+              conn.requester?.id === conn.requesterId ? conn.receiver?.id : conn.requester?.id
+            ))
+            .map(conn => {
+              const mutual = conn.requester?.id === conn.requesterId ? conn.receiver : conn.requester;
+              return mutual?.username;
+            })
+            .filter(Boolean)
+            .slice(0, 2);
+
           return (
             <UserCard
               key={user.id}
-              user={userWithConnectionId}
-              status={connectionInfo.status}
+              user={user}
+              status={getUserStatus(user.id)}
               onConnect={() => onConnect(user)}
               onChat={onChat}
               onAccept={onAccept}
               onReject={onReject}
-              onCancel={cancelConnectionRequest}
               compact={viewMode === 'list'}
+              mutualCount={mutualCount}
+              mutualNames={mutualNames}
             />
-          )
+          );
         })}
       </div>
     )}

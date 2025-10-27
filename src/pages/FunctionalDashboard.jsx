@@ -11,9 +11,14 @@ import {
   MapPinIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon
+  ClockIcon,
+  HomeIcon,
+  ShoppingBagIcon,
+  WrenchScrewdriverIcon,
+  HeartIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline'
-import { MessageCircle, Users } from 'lucide-react'
+import { MessageCircle, Users, Briefcase, Home, ShoppingCart, Wrench, Heart, TrendingUp, Award, Target, Rocket, Building } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
 import { postsAPI, connectionsAPI, messagesAPI } from '../lib/api'
 import socketService from '../lib/socket'
@@ -179,8 +184,114 @@ const FunctionalDashboard = () => {
     }
   ]
 
+  // ALL Connection Categories from SRS
+  const allCategories = [
+    {
+      id: 'employment',
+      name: 'Employer ↔️ Employee',
+      employerDesc: 'Post jobs, find talent, manage hiring',
+      employeeDesc: 'Browse jobs, apply, showcase your skills',
+      icon: Briefcase,
+      color: 'from-blue-500 to-cyan-500',
+      bgColor: 'bg-blue-50',
+      textColor: 'text-blue-700',
+      roles: ['employer', 'employee']
+    },
+    {
+      id: 'rental',
+      name: 'Renter ↔️ Tenant',
+      renterDesc: 'List properties, find tenants, manage rentals',
+      tenantDesc: 'Find housing, contact landlords, secure rentals',
+      icon: Home,
+      color: 'from-purple-500 to-pink-500',
+      bgColor: 'bg-purple-50',
+      textColor: 'text-purple-700',
+      roles: ['renter', 'tenant']
+    },
+    {
+      id: 'matchmaking',
+      name: 'Husband ↔️ Wife',
+      description: 'Social matchmaking & family connections',
+      icon: Heart,
+      color: 'from-pink-500 to-rose-500',
+      bgColor: 'bg-pink-50',
+      textColor: 'text-pink-700',
+      roles: ['husband', 'wife']
+    },
+    {
+      id: 'marketplace',
+      name: 'Buyer ↔️ Seller',
+      buyerDesc: 'Browse products, make purchases, negotiate deals',
+      sellerDesc: 'List products, manage inventory, sell items',
+      icon: ShoppingCart,
+      color: 'from-green-500 to-emerald-500',
+      bgColor: 'bg-green-50',
+      textColor: 'text-green-700',
+      roles: ['buyer', 'seller']
+    },
+    {
+      id: 'services',
+      name: 'Service Provider ↔️ Customer',
+      providerDesc: 'Offer professional services, manage bookings',
+      customerDesc: 'Find service providers, hire professionals',
+      icon: Wrench,
+      color: 'from-orange-500 to-amber-500',
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-700',
+      roles: ['service_provider', 'customer']
+    }
+  ]
+
+  // Filter categories based on user role
+  const getUserCategories = () => {
+    const userRole = user?.role?.toLowerCase()
+    
+    // Admin sees all categories
+    if (userRole === 'admin') {
+      return allCategories.map(cat => ({
+        ...cat,
+        description: cat.description || `${cat.name} connections`
+      }))
+    }
+
+    // Filter for user's role
+    const relevantCategory = allCategories.find(cat => 
+      cat.roles.includes(userRole)
+    )
+
+    if (!relevantCategory) {
+      return [] // No category for this role
+    }
+
+    // Get the right description based on role
+    let description = relevantCategory.description
+    if (userRole === 'employer') description = relevantCategory.employerDesc
+    if (userRole === 'employee') description = relevantCategory.employeeDesc
+    if (userRole === 'renter') description = relevantCategory.renterDesc
+    if (userRole === 'tenant') description = relevantCategory.tenantDesc
+    if (userRole === 'buyer') description = relevantCategory.buyerDesc
+    if (userRole === 'seller') description = relevantCategory.sellerDesc
+    if (userRole === 'service_provider') description = relevantCategory.providerDesc
+    if (userRole === 'customer') description = relevantCategory.customerDesc
+
+    return [{
+      ...relevantCategory,
+      description
+    }]
+  }
+
+  const connectionCategories = getUserCategories()
+
+  // Dynamic tab label based on role
+  const getCategoryTabLabel = () => {
+    if (connectionCategories.length === 0) return 'Categories'
+    if (connectionCategories.length > 1) return 'My Categories' // Admin
+    return `My ${connectionCategories[0].id.charAt(0).toUpperCase() + connectionCategories[0].id.slice(1)}`
+  }
+
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'categories', label: getCategoryTabLabel() },
     { id: 'requests', label: 'Connection Requests' },
     { id: 'messages', label: 'Recent Messages' },
     { id: 'posts', label: 'My Posts' }
@@ -188,70 +299,107 @@ const FunctionalDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Welcome Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Welcome back, {user?.username}! 👋
-            </h1>
-            <p className="mt-2 text-gray-600 capitalize">
-              {user?.role} Dashboard - Manage your network and opportunities
-            </p>
+      {/* Welcome Header with Gradient */}
+      <div className="bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-500 rounded-2xl shadow-xl p-8 mb-6 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-black text-white mb-2">
+                Welcome back, {user?.username}! 👋
+              </h1>
+              <p className="text-white/90 text-lg font-semibold capitalize">
+                {user?.role} Dashboard - Manage your network and opportunities
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => navigate('/posts')}
+                className="inline-flex items-center px-6 py-3 bg-white text-purple-600 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Create Post
+              </button>
+              <button 
+                onClick={() => navigate('/connections')}
+                className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm text-white border-2 border-white/30 rounded-xl font-bold hover:bg-white/30 transition-all"
+              >
+                <Users className="h-5 w-5 mr-2" />
+                Find People
+              </button>
+            </div>
           </div>
           
-          <div className="flex space-x-3">
-            <button 
-              onClick={() => navigate('/posts')}
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Create Post
-            </button>
-            <button 
-              onClick={() => navigate('/connections')}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Find People
-            </button>
-          </div>
+          {/* Quick Category Access */}
+          {connectionCategories.length > 0 && (
+            <div className={`grid ${connectionCategories.length === 1 ? 'grid-cols-1' : `grid-cols-${Math.min(connectionCategories.length, 5)}`} gap-3 mt-6`}>
+              {connectionCategories.map((category) => {
+                const Icon = category.icon
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => navigate(`/posts?category=${category.id}`)}
+                    className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 hover:bg-white/20 transition-all group"
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <Icon className="w-8 h-8 text-white group-hover:scale-110 transition-transform" strokeWidth={2.5} />
+                      <div>
+                        <div className="text-sm font-bold text-white text-left">{category.name}</div>
+                        <div className="text-xs text-white/80 text-left">{category.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Enhanced Design */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        {stats.map((stat) => (
+        {stats.map((stat, index) => (
           <div 
             key={stat.name} 
             onClick={stat.action}
-            className={`${stat.bgColor} rounded-lg p-6 cursor-pointer hover:shadow-md transition-shadow`}
+            className="group relative bg-white rounded-2xl p-6 cursor-pointer hover:shadow-2xl transition-all duration-300 border-2 border-gray-100 hover:border-purple-200 transform hover:scale-105"
+            style={{ animationDelay: `${index * 100}ms` }}
           >
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-white">
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+            {/* Gradient background on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} strokeWidth={2.5} />
+                </div>
+                <svg className="w-5 h-5 text-gray-300 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-              </div>
+              <p className="text-sm font-semibold text-gray-600 mb-1">{stat.name}</p>
+              <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6">
+      {/* Tabs - Modern Design */}
+      <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 mb-6 overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-b-2 border-purple-100">
+          <nav className="flex space-x-2 px-6 py-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-6 font-bold text-sm rounded-xl transition-all duration-300 ${
                   activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg transform scale-105'
+                    : 'text-gray-600 hover:text-purple-600 hover:bg-white/50'
                 }`}
               >
                 {tab.label}
@@ -261,6 +409,106 @@ const FunctionalDashboard = () => {
         </div>
 
         <div className="p-6">
+          {/* Categories Tab */}
+          {activeTab === 'categories' && (
+            <div>
+              {connectionCategories.length === 1 ? (
+                <>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    Your {connectionCategories[0].name} Dashboard
+                  </h3>
+                  <p className="text-gray-600 mb-8">
+                    {connectionCategories[0].description}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Connection Categories</h3>
+                  <p className="text-gray-600 mb-8">Choose how you want to connect and grow your network</p>
+                </>
+              )}
+              
+              <div className={`grid grid-cols-1 ${connectionCategories.length === 1 ? '' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
+                {connectionCategories.map((category) => {
+                  const Icon = category.icon
+                  return (
+                    <div
+                      key={category.id}
+                      onClick={() => navigate(`/posts?category=${category.id}`)}
+                      className={`${category.bgColor} rounded-2xl p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-transparent hover:border-gray-200`}
+                    >
+                      {/* Icon with gradient background */}
+                      <div className="relative mb-4">
+                        <div className={`w-16 h-16 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-6 transition-transform`}>
+                          <Icon className="w-8 h-8 text-white" strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      
+                      {/* Category name */}
+                      <h4 className={`text-xl font-black ${category.textColor} mb-2`}>
+                        {category.name}
+                      </h4>
+                      
+                      {/* Description */}
+                      <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                        {category.description}
+                      </p>
+                      
+                      {/* Action button */}
+                      <button className={`w-full py-3 bg-white ${category.textColor} font-bold rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2`}>
+                        <span>Explore</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              {/* Info Section */}
+              {connectionCategories.length > 0 && (
+                <div className={`mt-12 bg-gradient-to-br ${connectionCategories[0].bgColor} rounded-2xl p-8 border-2 ${connectionCategories[0].textColor.replace('text-', 'border-')}`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 bg-gradient-to-br ${connectionCategories[0].color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                      {React.createElement(connectionCategories[0].icon, { className: "w-6 h-6 text-white", strokeWidth: 2.5 })}
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-900 mb-2">
+                        {connectionCategories.length === 1 
+                          ? `🚀 Your ${connectionCategories[0].id.charAt(0).toUpperCase() + connectionCategories[0].id.slice(1)} Network` 
+                          : '🚀 Multi-Category Networking Platform'}
+                      </h4>
+                      <p className="text-gray-700 leading-relaxed mb-4">
+                        {connectionCategories.length === 1 
+                          ? `Connect with others in the ${connectionCategories[0].name.toLowerCase()} category. Build your network, explore opportunities, and grow your connections!`
+                          : 'Ethio Connect brings together 5 powerful connection categories in one unified platform. Whether you\'re hiring, renting, selling, or seeking services, we\'ve got you covered!'}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                        <div className="text-center">
+                          <div className={`text-3xl font-black ${connectionCategories[0].textColor}`}>280K+</div>
+                          <div className="text-sm text-gray-600 font-semibold">Active Users</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-black text-blue-600">50K+</div>
+                          <div className="text-sm text-gray-600 font-semibold">Active Posts</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-black text-pink-600">4.9★</div>
+                          <div className="text-sm text-gray-600 font-semibold">User Rating</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-black text-green-600">99.8%</div>
+                          <div className="text-sm text-gray-600 font-semibold">Success Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

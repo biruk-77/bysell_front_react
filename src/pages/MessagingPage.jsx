@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 const MessagingPage = () => {
   const { userId: otherUserId } = useParams()
   const { user } = useAuthStore()
+  
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -268,6 +269,34 @@ const MessagingPage = () => {
             Switch to Classic View
           </button>
         </div>
+
+        {/* Debug Info */}
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-medium text-yellow-800 mb-2">🐛 Debug Info:</h3>
+          <div className="text-sm text-yellow-700 space-y-1">
+            <p><strong>Your User ID:</strong> {user?.id}</p>
+            <p><strong>Your Username:</strong> {user?.username}</p>
+            <p><strong>Conversation Partner ID:</strong> {otherUserId}</p>
+            <p><strong>Conversation Partner Name:</strong> {conversation?.otherUser?.username || 'Loading...'}</p>
+            <p><strong>Are you chatting with yourself?</strong> {user?.id === otherUserId ? '⚠️ YES - This is the problem!' : '✅ No'}</p>
+          </div>
+        </div>
+
+        {/* Warning if chatting with self */}
+        {user?.id === otherUserId && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h3 className="font-medium text-red-800 mb-2">⚠️ You're chatting with yourself!</h3>
+            <p className="text-sm text-red-700 mb-3">
+              To test messaging properly, you need to:
+            </p>
+            <div className="text-sm text-red-700 space-y-1">
+              <p>1. Open an incognito window</p>
+              <p>2. Register/login as a different user</p>
+              <p>3. Go to connections and find your first user</p>
+              <p>4. Start a conversation from there</p>
+            </div>
+          </div>
+        )}
         
         <RealTimeMessageInterface 
           conversationUserId={otherUserId}

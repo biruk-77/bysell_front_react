@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import useAuthStore from './store/useAuthStore'
 import useSocket from './lib/useSocket'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -8,27 +9,32 @@ import Layout from './components/layout/Layout'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 
 // Auth Pages
-import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
+import CreativeLoginPage from './pages/auth/CreativeLoginPage'
+import ModernRegisterPage from './pages/auth/ModernRegisterPage'
 
 // Dashboard Pages
 import Dashboard from './pages/Dashboard'
 import ProfilePage from './pages/profile/ProfilePage'
 
-// Posts Pages
+// Main Pages
 import PostsPage from './pages/PostsPage'
-
-// Search Pages  
 import SearchPage from './pages/SearchPage'
-
 import ConnectionsPage from './pages/ConnectionsPage'
+import ConnectionsPageNew from './pages/ConnectionsPageNew'
+import ComprehensiveConnectionsPage from './pages/connections/ComprehensiveConnectionsPage'
 
 // Messages Pages
 import ConversationsPage from './pages/ConversationsPage'
 import MessagingPage from './pages/MessagingPage'
+import MessagesPage from './pages/MessagesPage'
+import TestMessaging from './pages/TestMessaging'
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminLoginPage from './pages/admin/AdminLoginPage'
+
+// Phone OTP Login
+import PhoneLogin from './pages/PhoneLogin'
 
 // Other Pages
 import NotFoundPage from './pages/NotFoundPage'
@@ -53,13 +59,14 @@ function App() {
 
   return (
     <div className="App">
+      <Toaster position="top-right" />
       <Routes>
         {/* Public Routes */}
         <Route
           path="/login"
           element={
             <PublicRoute>
-              <LoginPage />
+              <CreativeLoginPage />
             </PublicRoute>
           }
         />
@@ -67,8 +74,29 @@ function App() {
           path="/register"
           element={
             <PublicRoute>
-              <RegisterPage />
+              <ModernRegisterPage />
             </PublicRoute>
+          }
+        />
+        <Route
+          path="/phone-login"
+          element={
+            <PublicRoute>
+              <PhoneLogin />
+            </PublicRoute>
+          }
+        />
+
+        {/* Admin Login Route (Separate from regular login) */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+
+        {/* Admin Dashboard Route (No Layout) */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
           }
         />
 
@@ -93,21 +121,15 @@ function App() {
                   <Route path="/search" element={<SearchPage />} />
 
                   {/* Connections */}
-                  <Route path="/connections" element={<ConnectionsPage />} />
+                  <Route path="/connections" element={<ConnectionsPageNew />} />
+                  <Route path="/connections-old" element={<ConnectionsPage />} />
+                  <Route path="/connections-test" element={<ComprehensiveConnectionsPage />} />
 
                   {/* Messages */}
                   <Route path="/messages" element={<ConversationsPage />} />
                   <Route path="/messages/:userId" element={<MessagingPage />} />
-
-                  {/* Admin Routes */}
-                  <Route
-                    path="/admin/*"
-                    element={
-                      <ProtectedRoute requiredRole="admin">
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route path="/chat" element={<MessagesPage />} />
+                  <Route path="/test-messaging" element={<TestMessaging />} />
 
                   {/* 404 */}
                   <Route path="/404" element={<NotFoundPage />} />

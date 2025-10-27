@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import useAuthStore from '../store/useAuthStore';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 const useSocket = () => {
   const socketRef = useRef(null);
@@ -13,7 +13,7 @@ const useSocket = () => {
     if (!token) return;
 
     // Initialize socket connection
-    socketRef.current = io('http://localhost:5000', {
+    socketRef.current = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
       auth: { token }
     });
 
@@ -23,120 +23,52 @@ const useSocket = () => {
     socket.on('connect', () => {
       console.log('✅ Socket connected!');
       setIsConnected(true);
-      toast.success('Connected to real-time services');
     });
 
     socket.on('disconnect', () => {
       console.log('❌ Socket disconnected');
       setIsConnected(false);
-      toast.error('Disconnected from real-time services');
     });
 
     socket.on('connect_error', (error) => {
       console.error('🚫 Socket connection error:', error);
       setIsConnected(false);
-      toast.error('Connection failed: ' + error.message);
     });
 
-    // User status events
+    // User presence events
     socket.on('user_online', (data) => {
       console.log('🟢 User online:', data);
       setOnlineUsers(prev => {
         const filtered = prev.filter(u => u.userId !== data.userId);
         return [...filtered, data];
       });
-      
-      if (data.userId !== user?.id) {
-        toast.success(`${data.username} is now online`, { duration: 2000 });
-      }
     });
 
     socket.on('user_offline', (data) => {
       console.log('🔴 User offline:', data);
       setOnlineUsers(prev => prev.filter(u => u.userId !== data.userId));
-      
-      if (data.userId !== user?.id) {
-        toast(`${data.username} went offline`, { 
-          duration: 2000,
-          icon: '⚪' 
-        });
-      }
     });
 
     // Connection request events
     socket.on('connection_request_received', (data) => {
       console.log('🔗 New connection request:', data);
-      toast.success(
-        `New connection request from ${data.connection.requester.username}`,
-        { duration: 5000 }
-      );
-      
-      // Trigger custom event for components to listen
-      window.dispatchEvent(new CustomEvent('connection_request_received', { 
-        detail: data 
-      }));
+      toast.success(`New connection request from ${data.connection.requester.username}`);
     });
 
     socket.on('connection_request_responded', (data) => {
       console.log('✅ Connection request responded:', data);
       const action = data.action === 'accept' ? 'accepted' : 'rejected';
-      toast.success(
-        `${data.connection.receiver.username} ${action} your connection request`,
-        { duration: 5000 }
-      );
-      
-      // Trigger custom event
-      window.dispatchEvent(new CustomEvent('connection_request_responded', { 
-        detail: data 
-      }));
+      toast.success(`${data.connection.receiver.username} ${action} your connection request`);
     });
 
     // Message events
     socket.on('new_message', (data) => {
       console.log('💬 New message:', data);
-      
-      // Don't show toast for your own messages
       if (data.senderId !== user?.id) {
-        toast(
-          `New message from ${data.senderUsername}: ${data.content.substring(0, 50)}${data.content.length > 50 ? '...' : ''}`,
-          { 
-            duration: 4000,
-            icon: '💬'
-          }
-        );
+        toast(`New message from ${data.senderUsername}`);
       }
-      
-      // Trigger custom event for message components
-      window.dispatchEvent(new CustomEvent('new_message', { 
-        detail: data 
-      }));
-    });
-
-    socket.on('message_notification', (data) => {
-      console.log('🔔 Message notification:', data);
-      toast.info(data.notification, { duration: 3000 });
-    });
-
-    socket.on('messages_read', (data) => {
-      console.log('👁️ Messages read:', data);
-      
-      // Trigger custom event for message status updates
-      window.dispatchEvent(new CustomEvent('messages_read', { 
-        detail: data 
-      }));
-    });
-
-    socket.on('message_deleted', (data) => {
-      console.log('🗑️ Message deleted:', data);
-      toast('A message was deleted', { 
-        duration: 2000,
-        icon: '🗑️' 
-      });
-      
-      // Trigger custom event
-      window.dispatchEvent(new CustomEvent('message_deleted', { 
-        detail: data 
-      }));
+      // Dispatch event for RealTimeMessageInterface to catch
+      window.dispatchEvent(new CustomEvent('new_message', { detail: data }));
     });
 
     // Cleanup on unmount
@@ -150,37 +82,133 @@ const useSocket = () => {
   }, [token, user?.id]);
 
   // Socket methods
-  const joinConversation = (otherUserId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('join_conversation', { otherUserId });
-      console.log('👥 Joined conversation with:', otherUserId);
-    }
+  const sendConnectionRequest = (receiverId, message = '') => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      socketRef.current.emit('send_connection_request', {
+        receiverId,
+        message: message || 'Hi! I would like to connect with you.'
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+    });
+  };
+
+  const respondToConnectionRequest = (connectionId, action) => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      socketRef.current.emit('respond_connection_request', {
+        connectionId,
+        action
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+    });
+  };
+
+  const cancelConnectionRequest = (connectionId) => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      socketRef.current.emit('cancel_connection_request', {
+        connectionId
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+    });
   };
 
   const sendMessage = (receiverId, content, messageType = 'text') => {
-    if (socketRef.current) {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
       socketRef.current.emit('send_message', {
         receiverId,
         content,
         messageType
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
       });
-      console.log('📤 Sent message to:', receiverId);
-    }
+    });
+  };
+
+  const joinConversation = (otherUserId) => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      socketRef.current.emit('join_conversation', {
+        otherUserId
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+    });
   };
 
   const leaveConversation = (otherUserId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('leave_conversation', { otherUserId });
-      console.log('👋 Left conversation with:', otherUserId);
-    }
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      socketRef.current.emit('leave_conversation', {
+        otherUserId
+      }, (response) => {
+        if (response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+    });
   };
 
   return {
     socket: socketRef.current,
     isConnected,
     onlineUsers,
-    joinConversation,
+    sendConnectionRequest,
+    respondToConnectionRequest,
+    cancelConnectionRequest,
     sendMessage,
+    joinConversation,
     leaveConversation
   };
 };

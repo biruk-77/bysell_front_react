@@ -6,7 +6,15 @@ import { toast } from 'react-hot-toast';
 const RealTimeConnections = () => {
   const [connectionRequests, setConnectionRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
-  const { isConnected, onlineUsers } = useSocket();
+  const [currentStatus, setCurrentStatus] = useState('online');
+  const { isConnected, onlineUsers, updateStatus, getOnlineUsers } = useSocket();
+
+  // Load online users when component mounts
+  useEffect(() => {
+    if (isConnected) {
+      getOnlineUsers();
+    }
+  }, [isConnected, getOnlineUsers]);
 
   // Listen for real-time connection events
   useEffect(() => {
@@ -72,17 +80,67 @@ const RealTimeConnections = () => {
     }
   };
 
+  // Handle status change
+  const handleStatusChange = (newStatus) => {
+    setCurrentStatus(newStatus);
+    updateStatus(newStatus, (response) => {
+      if (response.success) {
+        toast.success(`Status updated to ${newStatus}`);
+      } else {
+        toast.error('Failed to update status');
+        setCurrentStatus('online'); // Reset on failure
+      }
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Status Control */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-3">Your Status</h3>
+        <div className="flex items-center space-x-4">
+          {['online', 'away', 'busy', 'offline'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleStatusChange(status)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium capitalize flex items-center space-x-2 ${
+                currentStatus === status
+                  ? status === 'online' ? 'bg-green-100 text-green-800'
+                  : status === 'away' ? 'bg-yellow-100 text-yellow-800'
+                  : status === 'busy' ? 'bg-red-100 text-red-800'
+                  : 'bg-gray-100 text-gray-800'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${
+                status === 'online' ? 'bg-green-500'
+                : status === 'away' ? 'bg-yellow-500'
+                : status === 'busy' ? 'bg-red-500'
+                : 'bg-gray-400'
+              }`} />
+              <span>{status}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Online Users */}
       {isConnected && onlineUsers.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Users className="h-5 w-5 text-green-500" />
-            <h3 className="text-lg font-medium text-gray-900">Users Online Now</h3>
-            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-              {onlineUsers.length}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-green-500" />
+              <h3 className="text-lg font-medium text-gray-900">Users Online Now</h3>
+              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                {onlineUsers.length}
+              </span>
+            </div>
+            <button
+              onClick={() => getOnlineUsers()}
+              className="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+            >
+              Refresh
+            </button>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -94,13 +152,20 @@ const RealTimeConnections = () => {
                       {user.username?.charAt(0)?.toUpperCase() || 'U'}
                     </span>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${
+                    user.status === 'online' ? 'bg-green-500'
+                    : user.status === 'away' ? 'bg-yellow-500'
+                    : user.status === 'busy' ? 'bg-red-500'
+                    : 'bg-green-500'
+                  }`}></div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {user.username}
                   </p>
-                  <p className="text-xs text-gray-500">Online now</p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {user.status || 'online'}
+                  </p>
                 </div>
                 <button className="p-1 text-gray-400 hover:text-blue-500">
                   <UserPlus className="h-4 w-4" />

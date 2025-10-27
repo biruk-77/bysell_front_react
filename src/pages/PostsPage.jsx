@@ -8,13 +8,14 @@ import toast from 'react-hot-toast'
 const PostsPage = () => {
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState('suggested') // Default to suggested
   const [posts, setPosts] = useState([])
   const [myPosts, setMyPosts] = useState([])
   const [connections, setConnections] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingPost, setEditingPost] = useState(null)
+  const [showAllCategories, setShowAllCategories] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     postType: '',
@@ -22,9 +23,37 @@ const PostsPage = () => {
     location: ''
   })
 
+  // Get matching role for current user
+  const getMatchingRole = () => {
+    const role = user?.role?.toLowerCase()
+    const roleMap = {
+      'employer': 'employee',
+      'employee': 'employer',
+      'renter': 'tenant',
+      'tenant': 'renter',
+      'husband': 'wife',
+      'wife': 'husband',
+      'buyer': 'seller',
+      'seller': 'buyer',
+      'service_provider': 'customer',
+      'customer': 'service_provider'
+    }
+    return roleMap[role] || null
+  }
+
+  // Get category for role
+  const getCategoryForRole = (role) => {
+    if (['employer', 'employee'].includes(role)) return 'employment'
+    if (['renter', 'tenant'].includes(role)) return 'rental'
+    if (['husband', 'wife'].includes(role)) return 'matchmaking'
+    if (['buyer', 'seller'].includes(role)) return 'marketplace'
+    if (['service_provider', 'customer'].includes(role)) return 'services'
+    return null
+  }
+
   useEffect(() => {
     loadPosts()
-  }, [activeTab, filters])
+  }, [activeTab, filters, showAllCategories])
 
   const loadPosts = async () => {
     try {
@@ -34,7 +63,17 @@ const PostsPage = () => {
       const connectionsRes = await connectionsAPI.getMyConnections({ limit: 100 })
       setConnections(connectionsRes.data.connections || [])
       
-      if (activeTab === 'all') {
+      if (activeTab === 'suggested') {
+        // Load posts from matching role
+        const matchingRole = getMatchingRole()
+        const response = await postsAPI.getAllPosts({
+          page: 1,
+          limit: 20,
+          role: matchingRole, // Filter by matching role
+          ...filters
+        })
+        setPosts(response.data.posts || [])
+      } else if (activeTab === 'all') {
         const response = await postsAPI.getAllPosts({
           page: 1,
           limit: 20,
@@ -118,17 +157,21 @@ const PostsPage = () => {
     )
   }
 
+  const matchingRole = getMatchingRole()
+  const userCategory = getCategoryForRole(user?.role?.toLowerCase())
+
   const tabs = [
-    { id: 'all', label: 'All Posts', icon: Eye },
+    { id: 'suggested', label: `For You ${matchingRole ? `(${matchingRole.charAt(0).toUpperCase() + matchingRole.slice(1)})` : ''}`, icon: Users },
+    { id: 'all', label: 'Browse All', icon: Eye },
     { id: 'my-posts', label: 'My Posts', icon: Edit }
   ]
 
   const categories = [
-    { value: 'job', label: 'Jobs' },
-    { value: 'service', label: 'Services' },
-    { value: 'product', label: 'Products' },
-    { value: 'collaboration', label: 'Collaboration' },
-    { value: 'networking', label: 'Networking' }
+    { value: 'employment', label: '👔 Employment' },
+    { value: 'rental', label: '🏠 Rental' },
+    { value: 'matchmaking', label: '💕 Matchmaking' },
+    { value: 'marketplace', label: '🛒 Marketplace' },
+    { value: 'services', label: '🔧 Services' }
   ]
 
   const postTypes = [
@@ -140,8 +183,18 @@ const PostsPage = () => {
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Posts & Listings</h1>
-          <p className="text-gray-600 mt-2">Discover opportunities and share what you offer</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {activeTab === 'suggested' && matchingRole 
+              ? `${matchingRole.charAt(0).toUpperCase() + matchingRole.slice(1)} Posts For You`
+              : activeTab === 'all' 
+                ? 'Browse All Posts' 
+                : 'My Posts & Listings'}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {activeTab === 'suggested' && matchingRole
+              ? `Connect with ${matchingRole}s in your network`
+              : 'Discover opportunities and share what you offer'}
+          </p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -170,8 +223,28 @@ const PostsPage = () => {
         ))}
       </div>
 
+      {/* Suggested Banner */}
+      {activeTab === 'suggested' && matchingRole && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 mb-6 border-2 border-purple-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Users className="w-6 h-6 text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                🎯 Showing {matchingRole.charAt(0).toUpperCase() + matchingRole.slice(1)} Posts
+              </h3>
+              <p className="text-gray-700">
+                These posts are from <span className="font-bold">{matchingRole}s</span> that match your <span className="font-bold">{user?.role}</span> profile. 
+                Want to explore other categories? Switch to <button onClick={() => setActiveTab('all')} className="text-purple-600 font-bold underline hover:text-purple-700">Browse All</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
-      {activeTab === 'all' && (
+      {(activeTab === 'all' || activeTab === 'suggested') && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
@@ -228,20 +301,52 @@ const PostsPage = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(activeTab === 'all' ? posts : myPosts).map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              isMyPost={post.userId === user.id}
-              isConnected={isConnectedTo(post.userId)}
-              onEdit={() => setEditingPost(post)}
-              onDelete={() => handleDeletePost(post.id)}
-              onConnect={() => sendConnectionRequest(post.userId, post.author?.username)}
-              onChat={() => startChat(post.userId, post.author?.username)}
-            />
-          ))}
-        </div>
+        <>
+          {(activeTab === 'my-posts' ? myPosts : posts).length === 0 ? (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {activeTab === 'suggested' 
+                  ? `No ${matchingRole} posts yet`
+                  : activeTab === 'my-posts'
+                    ? 'No posts yet'
+                    : 'No posts found'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {activeTab === 'suggested' 
+                  ? `Be patient! ${matchingRole.charAt(0).toUpperCase() + matchingRole.slice(1)}s will start posting soon.`
+                  : activeTab === 'my-posts'
+                    ? 'Create your first post to get started!'
+                    : 'Try adjusting your filters or search terms.'}
+              </p>
+              {activeTab === 'suggested' && (
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+                >
+                  Browse All Posts
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(activeTab === 'my-posts' ? myPosts : posts).map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  isMyPost={post.userId === user.id}
+                  isConnected={isConnectedTo(post.userId)}
+                  onEdit={() => setEditingPost(post)}
+                  onDelete={() => handleDeletePost(post.id)}
+                  onConnect={() => sendConnectionRequest(post.userId, post.author?.username)}
+                  onChat={() => startChat(post.userId, post.author?.username)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Create/Edit Post Modal */}

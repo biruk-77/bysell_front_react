@@ -46,7 +46,7 @@ const useAuthStore = create(
           // Connect to socket
           socketService.connect(token)
           
-          toast.success(`Welcome back, ${user.username}!`)
+          toast.success(`Welcome back, ${user.username}!`, { duration: 3000 })
           return { success: true, user }
           
         } catch (error) {
@@ -83,7 +83,7 @@ const useAuthStore = create(
           // Connect to socket
           socketService.connect(token)
           
-          toast.success(`Welcome to ByAndSell, ${user.username}!`)
+          toast.success(`Welcome to Ethio Connect, ${user.username}!`, { duration: 3000 })
           return { success: true, user }
           
         } catch (error) {
@@ -114,7 +114,7 @@ const useAuthStore = create(
             error: null 
           })
           
-          toast.success('Logged out successfully')
+          toast.success('Logged out successfully', { duration: 2000 })
           
         } catch (error) {
           console.error('Logout error:', error)
@@ -187,7 +187,7 @@ const useAuthStore = create(
             isLoading: false 
           })
           
-          toast.success('Account updated successfully')
+          toast.success('Account updated successfully', { duration: 3000 })
           return { success: true }
           
         } catch (error) {
@@ -208,7 +208,7 @@ const useAuthStore = create(
           await authAPI.updatePassword(passwordData)
           
           set({ isLoading: false })
-          toast.success('Password updated successfully')
+          toast.success('Password updated successfully', { duration: 3000 })
           return { success: true }
           
         } catch (error) {
@@ -231,7 +231,7 @@ const useAuthStore = create(
           // Logout after deletion
           get().logout()
           
-          toast.success('Account deleted successfully')
+          toast.success('Account deleted successfully', { duration: 3000 })
           return { success: true }
           
         } catch (error) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MessageCircle, Users, Search, Plus } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
-import socketService from '../lib/socket'
+import useSocket from '../lib/useSocket'
 import { messagesAPI, connectionsAPI } from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -13,6 +13,7 @@ const ConversationsPage = () => {
   const [connections, setConnections] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const { isConnected } = useSocket()
 
   useEffect(() => {
     loadData()
@@ -22,6 +23,14 @@ const ConversationsPage = () => {
       cleanupSocketListeners()
     }
   }, [])
+
+  // Refresh conversations when socket connects
+  useEffect(() => {
+    if (isConnected) {
+      console.log('🔄 Socket connected, refreshing conversations...')
+      loadData()
+    }
+  }, [isConnected])
 
   const loadData = async () => {
     try {
@@ -33,7 +42,24 @@ const ConversationsPage = () => {
         connectionsAPI.getMyConnections({ limit: 50 })
       ])
 
-      setConversations(conversationsRes.data.conversations || [])
+      console.log('📄 Conversations response:', conversationsRes.data)
+      console.log('👥 Connections response:', connectionsRes.data)
+      
+      const conversationData = conversationsRes.data.conversations || []
+      console.log('🔍 Raw conversation data:', conversationData)
+      
+      // Log each conversation structure
+      conversationData.forEach((conv, index) => {
+        console.log(`📋 Conversation ${index}:`, {
+          id: conv.id,
+          otherUser: conv.otherUser,
+          participants: conv.participants,
+          latestMessage: conv.latestMessage,
+          structure: Object.keys(conv)
+        })
+      })
+      
+      setConversations(conversationData)
       setConnections(connectionsRes.data.connections || [])
     } catch (error) {
       console.error('Failed to load conversations:', error)
@@ -45,16 +71,22 @@ const ConversationsPage = () => {
 
   const setupSocketListeners = () => {
     // Listen for new messages to update conversation list
-    socketService.addEventListener('new_message', handleNewMessage)
-    socketService.addEventListener('message_notification', handleMessageNotification)
+    window.addEventListener('new_message', handleNewMessage)
+    window.addEventListener('message_notification', handleMessageNotification)
   }
 
   const cleanupSocketListeners = () => {
-    socketService.removeEventListener('new_message', handleNewMessage)
-    socketService.removeEventListener('message_notification', handleMessageNotification)
+    window.removeEventListener('new_message', handleNewMessage)
+    window.removeEventListener('message_notification', handleMessageNotification)
   }
 
-  const handleNewMessage = (messageData) => {
+  const handleNewMessage = (event) => {
+    const messageData = event.detail
+    console.log('📨 New message in conversations:', messageData)
+    
+    // Refresh conversations list to include new conversations
+    loadData()
+    
     // Update the conversation list with the latest message
     setConversations(prev => {
       const updated = [...prev]
@@ -66,7 +98,7 @@ const ConversationsPage = () => {
         // Move conversation to top and update latest message
         const conversation = { ...updated[conversationIndex] }
         conversation.latestMessage = messageData
-        conversation.updatedAt = messageData.createdAt
+        conversation.updatedAt = messageData.timestamp || messageData.createdAt
         
         updated.splice(conversationIndex, 1)
         updated.unshift(conversation)
@@ -85,9 +117,24 @@ const ConversationsPage = () => {
     navigate(`/messages/${userId}`)
   }
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.otherUser?.username?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredConversations = conversations.filter(conv => {
+    // Handle different conversation data structures
+    let username = '';
+    
+    if (conv.otherUser?.username) {
+      username = conv.otherUser.username;
+    } else if (conv.participants) {
+      // Find the other user in participants
+      const otherParticipant = conv.participants.find(p => p.id !== user?.id);
+      username = otherParticipant?.username || '';
+    } else if (conv.username) {
+      username = conv.username;
+    }
+    
+    console.log('🔍 Filtering conversation:', { conv, username, searchTerm });
+    
+    return username.toLowerCase().includes(searchTerm.toLowerCase());
+  })
 
   const filteredConnections = connections.filter(conn => {
     const otherUser = conn.requester?.id === user.id ? conn.receiver : conn.requester
@@ -140,23 +187,38 @@ const ConversationsPage = () => {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {filteredConversations.map((conversation) => (
-                  <div
-                    key={conversation.id}
-                    onClick={() => startConversation(conversation.otherUser.id, conversation.otherUser.username)}
-                    className="p-4 hover:bg-gray-50 cursor-pointer"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="h-12 w-12 bg-primary-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-medium">
-                          {conversation.otherUser?.username?.[0]?.toUpperCase() || 'U'}
-                        </span>
-                      </div>
+                {filteredConversations.map((conversation) => {
+                  // Get other user info from different possible structures
+                  let otherUser = null;
+                  
+                  if (conversation.otherUser) {
+                    otherUser = conversation.otherUser;
+                  } else if (conversation.participants) {
+                    otherUser = conversation.participants.find(p => p.id !== user?.id);
+                  }
+                  
+                  const userId = otherUser?.id || conversation.userId;
+                  const username = otherUser?.username || conversation.username || 'Unknown';
+                  
+                  console.log('🎨 Rendering conversation:', { conversation, otherUser, userId, username });
+                  
+                  return (
+                    <div
+                      key={conversation.id}
+                      onClick={() => startConversation(userId, username)}
+                      className="p-4 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="h-12 w-12 bg-primary-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-medium">
+                            {username?.[0]?.toUpperCase() || 'U'}
+                          </span>
+                        </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h3 className="font-medium text-gray-900 truncate">
-                            {conversation.otherUser?.username}
+                            {username}
                           </h3>
                           <span className="text-xs text-gray-500">
                             {conversation.latestMessage && 
@@ -182,7 +244,8 @@ const ConversationsPage = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -251,12 +314,21 @@ const ConversationsPage = () => {
       </div>
 
       {/* Real-time connection status */}
-      {socketService.isConnected() && (
+      {isConnected && (
         <div className="mt-6 text-center">
           <span className="inline-flex items-center text-xs text-green-600">
             <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
             Real-time messaging active
           </span>
+        </div>
+      )}
+      
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
+          <div><strong>Socket Connected:</strong> {isConnected ? '✅' : '❌'}</div>
+          <div><strong>Conversations:</strong> {conversations.length}</div>
+          <div><strong>Connections:</strong> {connections.length}</div>
         </div>
       )}
     </div>

@@ -20,6 +20,20 @@ class SocketService {
       forceNew: true
     })
 
+    // ========== LOG ALL INCOMING EVENTS ==========
+    this.socket.onAny((eventName, ...args) => {
+      console.log('\n📨 INCOMING SOCKET EVENT:', eventName)
+      console.log('   Raw Data:', JSON.stringify(args, null, 2))
+    })
+
+    // ========== LOG ALL OUTGOING EVENTS ==========
+    const originalEmit = this.socket.emit.bind(this.socket)
+    this.socket.emit = function(eventName, ...args) {
+      console.log('\n📤 OUTGOING SOCKET EVENT:', eventName)
+      console.log('   Sending Data:', JSON.stringify(args.filter(arg => typeof arg !== 'function'), null, 2))
+      return originalEmit(eventName, ...args)
+    }
+
     this.setupConnectionEvents()
     this.setupMessageEvents()
     this.setupConnectionRequestEvents()
@@ -51,41 +65,54 @@ class SocketService {
 
   setupMessageEvents() {
     this.socket.on('new_message', (data) => {
-      console.log('💬 New message received:', data)
+      console.log('💬 New message received - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       toast.success(`New message from ${data.senderUsername || 'Someone'}`)
       this.triggerEvent('new_message', data)
     })
 
     this.socket.on('message_notification', (data) => {
-      console.log('🔔 Message notification:', data)
+      console.log('🔔 Message notification - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('message_notification', data)
     })
 
     this.socket.on('messages_read', (data) => {
-      console.log('👁️ Messages read by:', data.readByUsername)
+      console.log('👁️ Messages read - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('messages_read', data)
     })
 
     this.socket.on('message_deleted', (data) => {
-      console.log('🗑️ Message deleted:', data)
+      console.log('🗑️ Message deleted - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('message_deleted', data)
     })
 
     this.socket.on('user_typing', (data) => {
-      console.log('⌨️ User typing:', data)
+      console.log('⌨️ User typing - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('user_typing', data)
+    })
+
+    this.socket.on('conversations_snapshot', (data) => {
+      console.log('📸 Conversations snapshot - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
+      this.triggerEvent('conversations_snapshot', data)
     })
   }
 
   setupConnectionRequestEvents() {
     this.socket.on('connection_request_received', (data) => {
-      console.log('🔗 New connection request:', data)
+      console.log('🔗 New connection request - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       toast.success(`New connection request from ${data.connection.requester.username}!`)
       this.triggerEvent('connection_request_received', data)
     })
 
     this.socket.on('connection_request_responded', (data) => {
-      console.log('✅ Connection request responded:', data)
+      console.log('✅ Connection request responded - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       const action = data.action === 'accept' ? 'accepted' : 'rejected'
       toast.success(`${data.connection.receiver.username} ${action} your connection request!`)
       this.triggerEvent('connection_request_responded', data)
@@ -94,17 +121,20 @@ class SocketService {
 
   setupPresenceEvents() {
     this.socket.on('user_online', (data) => {
-      console.log('🟢 User online:', data)
+      console.log('🟢 User online - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('user_online', data)
     })
 
     this.socket.on('user_offline', (data) => {
-      console.log('🔴 User offline:', data)
+      console.log('🔴 User offline - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('user_offline', data)
     })
 
     this.socket.on('user_status_changed', (data) => {
-      console.log('📊 User status changed:', data)
+      console.log('📊 User status changed - RAW EVENT DATA:')
+      console.log(JSON.stringify(data, null, 2))
       this.triggerEvent('user_status_changed', data)
     })
   }
